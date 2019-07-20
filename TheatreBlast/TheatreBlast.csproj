@@ -7,12 +7,14 @@
 
   <ItemGroup>
     <None Remove="Request.ps1" />
+    <None Remove="Requests\GetSeats.ps1" />
     <None Remove="WhatsOnV2GetCinemas.ps1" />
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Requests\GetSeats.ps1" />
     <EmbeddedResource Include="Requests\WhatsOnV2GetCinemas.ps1" />
-    <EmbeddedResource Include="Requests\Request.ps1" />
+    <EmbeddedResource Include="Requests\WhatsOnV2Alphabetic.ps1" />
   </ItemGroup>
 
   <ItemGroup>

@@ -6,7 +6,6 @@ using System.Linq;
 using System.Management.Automation;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Microsoft.PowerShell.Commands;
 using Newtonsoft.Json;
 using TheatreBlast.Responses;
@@ -23,7 +22,102 @@ namespace TheatreBlast
             var cinemasJson = ((BasicHtmlWebResponseObject)cinemasPsResponse.First().BaseObject).Content;
             var cinemas = JsonConvert.DeserializeObject<WhatsOnV2GetCinemasResponse>(cinemasJson);
 
-            //TODO blast!
+            LoopOverCinemas(cinemas);
+        }
+
+        private static void LoopOverCinemas(WhatsOnV2GetCinemasResponse cinemas)
+        {
+            var date = DateTime.Now.AddDays(2).ToString("dd-MM-yyyy");
+            Console.WriteLine($"Date: {date}");
+
+            foreach (var cinema in cinemas.WhatsOnCinemas)
+            {
+                var moviesInCinemaRequestStr = ReadFile("TheatreBlast.Requests.WhatsOnV2Alphabetic.ps1");
+                moviesInCinemaRequestStr = string.Format(moviesInCinemaRequestStr, cinema.CinemaId, date);
+
+                var moviesInCinemaPs = ParsePowershellCommand(moviesInCinemaRequestStr);
+                var moviesInCinemaPsResponse = moviesInCinemaPs.Invoke();
+                var moviesInCinemaJson = ((BasicHtmlWebResponseObject)moviesInCinemaPsResponse.First().BaseObject).Content;
+                var moviesInCinema = JsonConvert.DeserializeObject<WhatsOnV2AlphabeticResponse>(moviesInCinemaJson);
+
+                Console.WriteLine($"Cinema/City: {cinema.CinemaName} ({cinema.CinemaId})");
+                LoopOverMoviesOnCinema(moviesInCinema);
+            }
+        }
+
+        private static void LoopOverMoviesOnCinema(WhatsOnV2AlphabeticResponse moviesInCinema)
+        {
+            foreach (var movie in moviesInCinema.WhatsOnAlphabeticFilms)
+            {
+                Console.WriteLine($"   Movie: {movie.Title} ({movie.FilmId})");
+
+                foreach (var whatsOn1 in movie.WhatsOnAlphabeticCinemas)
+                {
+                    foreach (var whatsOn2 in whatsOn1.WhatsOnAlphabeticCinemas)
+                    {
+                        foreach (var schedule in whatsOn2.WhatsOnAlphabeticShedules)
+                        {
+                            Console.WriteLine($"      Schedule: {schedule.Time}, {schedule.VersionTitle} ({schedule.BookingLink})");
+
+                            ProceedSeance(schedule);
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void ProceedSeance(WhatsOnAlphabeticShedulesEntry schedule)
+        {
+            var seanceId = schedule.BookingLink.Split(new[] {'/'}).SkipLast(1).Last();
+
+            var seanceRequestStr = ReadFile("TheatreBlast.Requests.GetSeats.ps1");
+            seanceRequestStr = string.Format(seanceRequestStr, seanceId);
+
+            var seancePs = ParsePowershellCommand(seanceRequestStr);
+            var seancePsResponse = seancePs.Invoke();
+            var seanceJson = ((BasicHtmlWebResponseObject)seancePsResponse.First().BaseObject).Content;
+            var seance = JsonConvert.DeserializeObject<GetSeatsResponse>(seanceJson);
+
+            DrawSeanceRoom(seance);
+        }
+
+        private static void DrawSeanceRoom(GetSeatsResponse seance)
+        {
+            Console.SetCursorPosition(0, Console.CursorTop);
+
+            var initZeroX = Console.CursorLeft;
+            var initZeroY = Console.CursorTop;
+
+            var points = seance.Rows
+                .SelectMany(row => row.Seats)
+                .Select(seat => new
+                {
+                    seat.X,
+                    seat.Y,
+                    seat.Lock,
+                    seat.Bought
+                });
+
+            foreach (var point in points)
+            {
+//                if (!(point.X > -1 && point.X > -1))
+//                {
+//                    continue;
+//                }
+
+                Console.SetCursorPosition(initZeroX + point.X, initZeroY + point.Y);
+
+                if (point.Bought)
+                {
+                    Console.Write("X");
+                }
+                else
+                {
+                    Console.Write("-");
+                }
+            }
+
+            Console.SetCursorPosition(0, initZeroY + points.Max(point => point.Y) + 1);
         }
 
         private static string ReadFile(string path)
@@ -65,7 +159,7 @@ namespace TheatreBlast
 
                     if (parameterPart.EndsWith("}"))
                     {
-                        var hashTable = GetHashTable(hashTableParts);
+                        var hashTable = BuildHashTable(hashTableParts);
                         ps.AddParameter(lastParameterName, hashTable);
 
                         hashTableParts.Clear();
@@ -94,7 +188,7 @@ namespace TheatreBlast
             return ps;
         }
 
-        private static Hashtable GetHashTable(IList<string> hashTableParts)
+        private static Hashtable BuildHashTable(IList<string> hashTableParts)
         {
             hashTableParts[0] = hashTableParts[0].Replace("@{", string.Empty);
             for (var i = 0; i < hashTableParts.Count; i++)
