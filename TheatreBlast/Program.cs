@@ -14,6 +14,10 @@ namespace TheatreBlast
 {
     class Program
     {
+        private static string SeatOffChar = "x";
+        private static string SeatTakenChar = "o";
+        private static string SeatFreeChar = "-";
+
         static void Main(string[] args)
         {
             var cinemasRequestStr = ReadFile("TheatreBlast.Requests.WhatsOnV2GetCinemas.ps1");
@@ -69,11 +73,6 @@ namespace TheatreBlast
         private static void ProceedSeance(WhatsOnAlphabeticShedulesEntry schedule)
         {
             var seanceId = schedule.BookingLink.Split(new[] {'/'}).SkipLast(1).Last();
-//
-//            if (seanceId != "3897255")
-//            {
-//                return;
-//            }
 
             var seanceRequestStr = ReadFile("TheatreBlast.Requests.GetSeats.ps1");
             seanceRequestStr = string.Format(seanceRequestStr, seanceId);
@@ -108,29 +107,40 @@ namespace TheatreBlast
             {
                 Console.SetCursorPosition(initZeroX + seat.X, initZeroY + seat.Y);
 
-                if (seat.X == 6 && seat.Y == 0)
+                if (seat.IsBlocked && !seat.IsIdGreatherThanMinusOne)
                 {
-
-                }
-
-                if (seat.IsBlocked && !seat.IsIdGreatherThanMinusOne) //wylaczone
-                {
-                    Console.Write("x");
+                    Console.Write(SeatOffChar);
                 }
                 else
                 {
                     if (seat.IsReserved)
                     {
-                        Console.Write("o"); 
+                        Console.Write(SeatTakenChar); 
                     }
                     else
                     {
-                        Console.Write("-");
+                        Console.Write(SeatFreeChar);
                     }
                 }
             }
 
+            DrawCinemaRoomLegend(initZeroX, initZeroY, seats.Max(point => point.X));
+
             Console.SetCursorPosition(0, initZeroY + seats.Max(point => point.Y) + 1);
+        }
+
+        private static void DrawCinemaRoomLegend(int initZeroX, int initZeroY, int maxX)
+        {
+            var x = initZeroX + maxX + 3;
+
+            Console.SetCursorPosition(x, initZeroY);
+            Console.WriteLine($"Legend:");
+            Console.SetCursorPosition(x, initZeroY + 1);
+            Console.WriteLine($"{SeatTakenChar}-seat taken");
+            Console.SetCursorPosition(x, initZeroY + 2);
+            Console.WriteLine($"{SeatFreeChar}-seat free");
+            Console.SetCursorPosition(x, initZeroY + 3);
+            Console.WriteLine($"{SeatOffChar}-seat off");
         }
 
         private static string ReadFile(string path)
