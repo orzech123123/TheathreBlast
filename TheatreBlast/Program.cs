@@ -27,7 +27,7 @@ namespace TheatreBlast
 
         private static void LoopOverCinemas(WhatsOnV2GetCinemasResponse cinemas)
         {
-            var date = DateTime.Now.AddDays(2).ToString("dd-MM-yyyy");
+            var date = DateTime.Now.ToString("dd-MM-yyyy");
             Console.WriteLine($"Date: {date}");
 
             foreach (var cinema in cinemas.WhatsOnCinemas)
@@ -41,11 +41,11 @@ namespace TheatreBlast
                 var moviesInCinema = JsonConvert.DeserializeObject<WhatsOnV2AlphabeticResponse>(moviesInCinemaJson);
 
                 Console.WriteLine($"Cinema/City: {cinema.CinemaName} ({cinema.CinemaId})");
-                LoopOverMoviesOnCinema(moviesInCinema);
+                LoopOverSeancesInCinema(moviesInCinema);
             }
         }
 
-        private static void LoopOverMoviesOnCinema(WhatsOnV2AlphabeticResponse moviesInCinema)
+        private static void LoopOverSeancesInCinema(WhatsOnV2AlphabeticResponse moviesInCinema)
         {
             foreach (var movie in moviesInCinema.WhatsOnAlphabeticFilms)
             {
@@ -69,6 +69,11 @@ namespace TheatreBlast
         private static void ProceedSeance(WhatsOnAlphabeticShedulesEntry schedule)
         {
             var seanceId = schedule.BookingLink.Split(new[] {'/'}).SkipLast(1).Last();
+//
+//            if (seanceId != "3897255")
+//            {
+//                return;
+//            }
 
             var seanceRequestStr = ReadFile("TheatreBlast.Requests.GetSeats.ps1");
             seanceRequestStr = string.Format(seanceRequestStr, seanceId);
@@ -88,36 +93,44 @@ namespace TheatreBlast
             var initZeroX = Console.CursorLeft;
             var initZeroY = Console.CursorTop;
 
-            var points = seance.Rows
+            var seats = seance.Rows
                 .SelectMany(row => row.Seats)
                 .Select(seat => new
                 {
                     seat.X,
                     seat.Y,
-                    seat.Lock,
-                    seat.Bought
+                    seat.IsBlocked,
+                    seat.IsIdGreatherThanMinusOne,
+                    seat.IsReserved
                 });
 
-            foreach (var point in points)
+            foreach (var seat in seats)
             {
-//                if (!(point.X > -1 && point.X > -1))
-//                {
-//                    continue;
-//                }
+                Console.SetCursorPosition(initZeroX + seat.X, initZeroY + seat.Y);
 
-                Console.SetCursorPosition(initZeroX + point.X, initZeroY + point.Y);
-
-                if (point.Bought)
+                if (seat.X == 6 && seat.Y == 0)
                 {
-                    Console.Write("X");
+
+                }
+
+                if (seat.IsBlocked && !seat.IsIdGreatherThanMinusOne) //wylaczone
+                {
+                    Console.Write("x");
                 }
                 else
                 {
-                    Console.Write("-");
+                    if (seat.IsReserved)
+                    {
+                        Console.Write("o"); 
+                    }
+                    else
+                    {
+                        Console.Write("-");
+                    }
                 }
             }
 
-            Console.SetCursorPosition(0, initZeroY + points.Max(point => point.Y) + 1);
+            Console.SetCursorPosition(0, initZeroY + seats.Max(point => point.Y) + 1);
         }
 
         private static string ReadFile(string path)
